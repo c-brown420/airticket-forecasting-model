@@ -1,7 +1,43 @@
 library(shiny)
+library(tidyverse)
 library(ggplot2)
-library(dplyr)
-library(titanic)
+library(plotly)
+
+# load and clean the data upon server launch
+load_and_clean <- function() {
+  # load data
+  airfare_data <- read.csv("data/Consumer_Airfare_Report.csv", stringsAsFactors = FALSE)
+  
+  # data cleaning
+  # 1. remove all missing vals in important columns
+  airfare_data <- airfare_data[!is.na(airfare_data$average_fare), ]
+  airfare_data <- airfare_data[!is.na(airfare_data$quarter), ]
+  airfare_data <- airfare_data[!is.na(nonstop_distance), ]
+  
+  # 2. filter for 2022 - 2024 only
+  airfare2022 <- airfare_data[airfare_data$year == 2022, ]
+  airfare2023 <- airfare_data[airfare_data$year == 2023, ]
+  airfare2024 <- airfare_data[airfare_data$year == 2024, ]
+  
+  # 3. remove bad data
+  airfare2022 <- airfare2022[airfare2022$average_fare > 0, ]
+  airfare2022 <- airfare2022[airfare2022$nonstop_distance > 0, ]
+  
+  airfare2023 <- airfare2023[airfare2023$average_fare > 0, ]
+  airfare2023 <- airfare2023[airfare2023$nonstop_distance > 0, ]
+  
+  airfare2024 <- airfare2024[airfare2024$average_fare > 0, ]
+  airfare2024 <- airfare2024[airfare2024$nonstop_distance > 0, ]
+  
+  # 4. remove extreme outliers
+  airfare2022 <- airfare2022[airfare2022$average_fare < 2000, ]
+  airfare2023 <- airfare2023[airfare2023$average_fare < 2000, ]
+  airfare2024 <- airfare2024[airfare2024$average_fare < 2000, ]
+  
+  # 5. convert quarter to factor for proper ordering
+  
+  
+}
 
 titanic <- titanic_train
 titanic <- na.omit(titanic)
