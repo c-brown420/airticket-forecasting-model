@@ -27,13 +27,12 @@ get_airports <- function() {
 get_airlines <- function() {
   airfare_data <- read.csv("data/Consumer_Airfare_Report.csv", stringsAsFactors = FALSE)
   
-  # List of major US domestic airlines
-  us_airlines <- c("AA", "AB", "ACA", "B6", "DL", "F9", "G4", "NK", "SY", "UA", "WN")
+  # Filter for 2022-2024 only
+  airfare_data <- airfare_data[airfare_data$Year >= 2022 & airfare_data$Year <= 2024, ]
   
-  airlines <- unique(airfare_data$carrier_lg)
-  # Filter for only US domestic airlines
-  airlines <- airlines[airlines %in% us_airlines]
-  airlines <- sort(airlines[!is.na(airlines)])
+  # Get unique airlines that actually exist in the filtered data
+  airlines <- sort(unique(airfare_data$carrier_lg))
+  airlines <- airlines[!is.na(airlines)]
   
   return(c("All", airlines))
 }

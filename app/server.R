@@ -386,6 +386,10 @@ server <- function(input, output, session) {
   output$feature_correlation <- renderPlotly({
     data <- filtered_data()
     
+    # Convert columns to numeric (remove any non-numeric characters first)
+    data$passengers <- as.numeric(gsub(",", "", data$passengers))
+    data$large_ms <- as.numeric(data$large_ms)
+    
     # Calculate simple correlations
     cor_distance <- cor(data$nsmiles, data$fare, use = "complete.obs")
     cor_passengers <- cor(data$passengers, data$fare, use = "complete.obs")
@@ -423,6 +427,9 @@ server <- function(input, output, session) {
   output$top_routes <- renderDataTable({
     data <- filtered_data()
     
+    # Convert passengers to numeric if it's a character
+    data$passengers <- as.numeric(gsub(",", "", data$passengers))
+    
     # Create unique route combinations
     routes <- data.frame(
       origin = data$airport_1,
@@ -430,6 +437,9 @@ server <- function(input, output, session) {
       passengers = data$passengers,
       fare = data$fare
     )
+    
+    # Remove rows with NA passengers
+    routes <- routes[!is.na(routes$passengers), ]
     
     # Aggregate by route
     route_summary <- aggregate(
