@@ -4,16 +4,38 @@ library(plotly)
 library(DT)   
 
 # Load data once to get unique airports
+# Load data once to get unique airports
 get_airports <- function() {
   airfare_data <- read.csv("data/Consumer_Airfare_Report.csv", stringsAsFactors = FALSE)
+  
+  # List of US domestic airports to include
+  us_airports <- c("ATL", "DFW", "DEN", "ORD", "LAX", "JFK", "SFO", "LAS", "SEA", 
+                   "MCO", "MIA", "EWR", "BOS", "MSP", "DTW", "PHL", "LGA", "IAD",
+                   "CLT", "DCA", "PHX", "SAN", "DAL", "MDW", "IAH", "HOU", "AUS",
+                   "BNA", "MCI", "STL", "TPA", "FLL", "PIT", "CLE", "RDU", "MEM",
+                   "BWI", "MSY", "SLC", "PDX", "SJC", "OAK", "SMF", "SNA", "ONT",
+                   "LGB", "BUR", "ANA", "FAT", "CCS", "LIH", "KOA", "OGG", "HNL")
+  
   airports <- sort(unique(airfare_data$airport_1))
+  # Filter for only US domestic airports
+  airports <- airports[airports %in% us_airports]
+  airports <- sort(airports)
+  
   return(c("All", airports))
 }
 
 get_airlines <- function() {
   airfare_data <- read.csv("data/Consumer_Airfare_Report.csv", stringsAsFactors = FALSE)
-  airlines <- sort(unique(airfare_data$carrier_lg))
-  return(c("All", airlines[!is.na(airlines)]))
+  
+  # List of major US domestic airlines
+  us_airlines <- c("AA", "AB", "ACA", "B6", "DL", "F9", "G4", "NK", "SY", "UA", "WN")
+  
+  airlines <- unique(airfare_data$carrier_lg)
+  # Filter for only US domestic airlines
+  airlines <- airlines[airlines %in% us_airlines]
+  airlines <- sort(airlines[!is.na(airlines)])
+  
+  return(c("All", airlines))
 }
 
 ui <- fluidPage(
