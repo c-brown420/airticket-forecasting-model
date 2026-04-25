@@ -3,6 +3,19 @@ library(shinythemes)
 library(plotly)
 library(DT)   
 
+# Load data once to get unique airports
+get_airports <- function() {
+  airfare_data <- read.csv("data/Consumer_Airfare_Report.csv", stringsAsFactors = FALSE)
+  airports <- sort(unique(airfare_data$airport_1))
+  return(c("All", airports))
+}
+
+get_airlines <- function() {
+  airfare_data <- read.csv("data/Consumer_Airfare_Report.csv", stringsAsFactors = FALSE)
+  airlines <- sort(unique(airfare_data$carrier_lg))
+  return(c("All", airlines[!is.na(airlines)]))
+}
+
 ui <- fluidPage(
   theme = shinytheme("flatly"),
   
@@ -20,11 +33,11 @@ ui <- fluidPage(
            # Year selector
            selectInput("year_select", "Select Year:", 
                        choices = c(2022, 2023, 2024), 
-                       selected = 2023),
+                       selected = 2024),
            
-           # Origin airport
+           # Origin airport - NOW DYNAMIC
            selectInput("origin_airport", "Origin Airport:",
-                       choices = c("All", "ATL", "DFW", "ORD", "LAX", "JFK"),
+                       choices = get_airports(),
                        selected = "All"),
            
            # Distance range
@@ -33,9 +46,8 @@ ui <- fluidPage(
                        value = c(0, 3000),
                        step = 100),
            
-           # Airline
            selectInput("airline_filter", "Airline:",
-                       choices = c("All", "United", "Delta", "American", "Southwest"),
+                       choices = get_airlines(),
                        selected = "All"),
            
            hr(),

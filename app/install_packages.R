@@ -1,4 +1,7 @@
-# Check and install packages if needed
+# install_packages.R
+# Run this script once before launching the app
+# source("install_packages.R")
+
 packages <- c("shiny", "tidyverse", "ggplot2", "plotly", "shinythemes", "DT")
 
 for (pkg in packages) {
@@ -8,14 +11,4 @@ for (pkg in packages) {
   }
 }
 
-library(shiny)
-library(tidyverse)
-library(ggplot2)
-library(plotly)
-library(shinythemes)
-library(DT)
-
-source("ui.R")
-source("server.R")
-
-shinyApp(ui = ui, server = server)
+print("All packages installed successfully!")
