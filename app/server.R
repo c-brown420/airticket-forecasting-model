@@ -238,13 +238,15 @@ server <- function(input, output, session) {
   })
   
   # ========================================================================
-  # BOX PLOT 3: PRICE BY AIRLINE (WITH YEAR COMPARISON)
+  # BOX PLOT 3: PRICE BY AIRLINE
   # ========================================================================
   
   output$box_plot_airline <- renderPlotly({
     data <- filtered_data()
     
-    # Create box plot by airline
+    # Remove NA airlines
+    data <- data[!is.na(data$carrier_lg), ]
+    
     p <- ggplot(data, aes(x = carrier_lg, y = fare, fill = carrier_lg)) +
       geom_boxplot(alpha = 0.7) +
       theme_minimal() +
@@ -451,7 +453,9 @@ server <- function(input, output, session) {
     return(output_table)
   }, options = list(pageLength = 10, searching = FALSE, paging = FALSE))
   
-  #scatter plot
+  # ========================================================================
+  # SCATTER PLOT: DISTANCE VS FARE
+  # ========================================================================
   
   output$scatter_distance_fare <- renderPlotly({
     data <- filtered_data()
@@ -473,8 +477,111 @@ server <- function(input, output, session) {
     ggplotly(p, tooltip = "text")
   })
   
-}  
+  # ========================================================================
+  # STATE HEATMAP: MEAN FARE BY ORIGIN STATE (NEW)
+  # ========================================================================
   
+  output$state_heatmap <- renderPlotly({
+    data <- filtered_data()
+    
+    # Parse state abbreviation from city1 column (format: "Albany, NY")
+    data$origin_state <- trimws(sub(".*,\\s*", "", data$city1))
+    
+    # Drop rows with missing state info
+    data <- data[!is.na(data$origin_state) & nchar(data$origin_state) == 2, ]
+    
+    # Keep only valid US states
+    valid_states <- c(
+      "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
+      "HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
+      "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
+      "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
+      "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"
+    )
+    data <- data[data$origin_state %in% valid_states, ]
+    
+    # Compute mean fare by origin state
+    state_fares <- aggregate(fare ~ origin_state, data = data, FUN = mean, na.rm = TRUE)
+    colnames(state_fares) <- c("state", "mean_fare")
+    state_fares$mean_fare <- round(state_fares$mean_fare, 2)
+    
+    # Build the choropleth map using plotly
+    fig <- plot_geo(state_fares, locationmode = "USA-states") %>%
+      add_trace(
+        z         = ~mean_fare,
+        locations = ~state,
+        color     = ~mean_fare,
+        colorscale = list(
+          list(0,   "green"),
+          list(0.5, "yellow"),
+          list(1,   "red")
+        ),
+        text = ~paste0(state, "<br>Mean Fare: $", mean_fare),
+        hoverinfo = "text",
+        colorbar  = list(title = "Mean Fare ($)")
+      ) %>%
+      layout(
+        title = list(
+          text = paste0("Mean Airfare by Origin State (", input$year_select, ")"),
+          x    = 0.5
+        ),
+        geo = list(
+          scope        = "usa",
+          projection   = list(type = "albers usa"),
+          showlakes    = TRUE,
+          lakecolor    = "rgb(255,255,255)"
+        )
+      )
+    
+    fig
+  })
+  
+  # ========================================================================
+  # STATE FARE SUMMARY TABLE (NEW)
+  # ========================================================================
+  
+  output$state_fare_table <- renderDataTable({
+    data <- filtered_data()
+    
+    # Parse state abbreviation from city1 column (format: "Albany, NY")
+    data$origin_state <- trimws(sub(".*,\\s*", "", data$city1))
+    
+    # Drop rows with missing or invalid state info
+    data <- data[!is.na(data$origin_state) & nchar(data$origin_state) == 2, ]
+    
+    valid_states <- c(
+      "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
+      "HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
+      "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
+      "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
+      "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"
+    )
+    data <- data[data$origin_state %in% valid_states, ]
+    
+    state_summary <- aggregate(
+      fare ~ origin_state,
+      data = data,
+      FUN  = function(x) c(
+        mean   = round(mean(x, na.rm = TRUE), 2),
+        median = round(median(x, na.rm = TRUE), 2),
+        n      = length(x)
+      )
+    )
+    colnames(state_summary)[1] <- "State"
+    
+    output_table <- data.frame(
+      State       = state_summary$State,
+      Mean_Fare   = round(state_summary$fare[, "mean"],   2),
+      Median_Fare = round(state_summary$fare[, "median"], 2),
+      Records     = as.integer(state_summary$fare[, "n"])
+    )
+    
+    output_table <- output_table[order(output_table$Mean_Fare), ]
+    
+    return(output_table)
+  }, options = list(pageLength = 10, searching = TRUE, paging = TRUE))
+  
+}  
 
 # return server object
 server

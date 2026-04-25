@@ -4,7 +4,6 @@ library(plotly)
 library(DT)   
 
 # Load data once to get unique airports
-# Load data once to get unique airports
 get_airports <- function() {
   airfare_data <- read.csv("data/Consumer_Airfare_Report.csv", stringsAsFactors = FALSE)
   
@@ -90,7 +89,7 @@ ui <- fluidPage(
            )
     ),
     
-    # MAIN CONTENT - BOX PLOTS
+    # MAIN CONTENT
     column(width = 9,
            tabsetPanel(
              # TAB 1: Primary box plot
@@ -137,6 +136,17 @@ ui <- fluidPage(
                       br(),
                       h4("Top Routes by Passenger Volume"),
                       dataTableOutput("top_routes")
+             ),
+             
+             # TAB 7: State Heatmap (NEW)
+             tabPanel("State Heatmap",
+                      br(),
+                      h4("Mean Fare by Origin State", style = "font-weight: bold; text-align: center;"),
+                      p("States are shaded by mean airfare from airports in that state. Green = cheaper, Red = more expensive.",
+                        style = "text-align: center; color: gray; font-size: 13px;"),
+                      plotlyOutput("state_heatmap", height = "550px"),
+                      br(),
+                      dataTableOutput("state_fare_table")
              )
            )
     )
