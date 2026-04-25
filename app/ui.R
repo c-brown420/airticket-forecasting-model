@@ -1,6 +1,8 @@
 library(shiny)
 library(shinythemes)
 library(plotly)
+library(DT)   
+install.packages(c("plotly", "DT"))
 
 ui <- fluidPage(
   theme = shinytheme("flatly"),
@@ -19,7 +21,7 @@ ui <- fluidPage(
            # Year selector
            selectInput("year_select", "Select Year:", 
                        choices = c(2022, 2023, 2024), 
-                       selected = 2024),
+                       selected = 2023),
            
            # Origin airport
            selectInput("origin_airport", "Origin Airport:",
@@ -88,6 +90,11 @@ ui <- fluidPage(
              tabPanel("Top Origins",
                       br(),
                       plotlyOutput("box_plot_origin_quarter", height = "600px")
+             ),
+             
+             tabPanel("Price Forecast",
+                      br(),
+                      plotlyOutput("scatter_distance_fare", height = "500px")
              ),
              
              # TAB 6: Feature importance

@@ -446,7 +446,30 @@ server <- function(input, output, session) {
     return(output_table)
   }, options = list(pageLength = 10, searching = FALSE, paging = FALSE))
   
-}
+  #scatter plot
+  
+  output$scatter_distance_fare <- renderPlotly({
+    data <- filtered_data()
+    data$year <- as.factor(data$year)
+    
+    p <- ggplot(data, aes(x = nsmiles, y = fare, color = year,
+                          text = paste("Route:", airport_1, "->", airport_2,
+                                       "<br>Distance:", nsmiles, "miles",
+                                       "<br>Fare: $", round(fare, 2),
+                                       "<br>Airline:", carrier_lg))) +
+      geom_point(alpha = 0.3, size = 1) +
+      geom_smooth(method = "lm", se = TRUE, linewidth = 1) +
+      theme_minimal() +
+      labs(title = "Ticket Price vs Flight Distance by Year",
+           x = "Distance (miles)", y = "Fare ($)", color = "Year") +
+      theme(plot.title = element_text(size = 14, face = "bold")) +
+      scale_color_brewer(palette = "Set1")
+    
+    ggplotly(p, tooltip = "text")
+  })
+  
+}  
+  
 
 # return server object
 server
