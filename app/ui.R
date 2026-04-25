@@ -9,7 +9,7 @@ get_airports <- function() {
   airfare_data <- read.csv("data/Consumer_Airfare_Report.csv", stringsAsFactors = FALSE)
   
   # List of US domestic airports to include
-  us_airports <- c("ATL", "DFW", "DEN", "ORD", "LAX", "JFK", "SFO", "LAS", "SEA", 
+  us_airports <- c("ATL", "ABE", "DFW", "DEN", "ORD", "LAX", "JFK", "SFO", "LAS", "SEA", 
                    "MCO", "MIA", "EWR", "BOS", "MSP", "DTW", "PHL", "LGA", "IAD",
                    "CLT", "DCA", "PHX", "SAN", "DAL", "MDW", "IAH", "HOU", "AUS",
                    "BNA", "MCI", "STL", "TPA", "FLL", "PIT", "CLE", "RDU", "MEM",
