@@ -28,23 +28,28 @@ load_and_clean <- function() {
   airfare_data <- read.csv("data/Consumer_Airfare_Report.csv", stringsAsFactors = FALSE)
   
   # data cleaning
-  # 1. remove all missing vals in important columns
+  # 1. remove dollar signs and convert fare to numeric
+  airfare_data$fare <- as.numeric(gsub("\\$", "", airfare_data$fare))
+  
+  # 2. convert quarter to numeric
+  airfare_data$quarter <- as.numeric(airfare_data$quarter)
+  
+  # 3. convert nsmiles - remove commas and convert to numeric
+  airfare_data$nsmiles <- as.numeric(gsub(",", "", airfare_data$nsmiles))
+  
+  # 4. remove all missing vals in important columns
   airfare_data <- airfare_data[!is.na(airfare_data$fare), ]
   airfare_data <- airfare_data[!is.na(airfare_data$quarter), ]
   airfare_data <- airfare_data[!is.na(airfare_data$nsmiles), ]
   
-  # DEBUG: Check what years exist
-  print("Years in dataset:")
-  print(table(airfare_data$Year))
-  
-  # 2. filter for 2022 - 2024 only
+  # 5. filter for 2022 - 2024 only
   airfare_data <- airfare_data[airfare_data$Year >= 2022 & airfare_data$Year <= 2024, ]
   
   airfare2022 <- airfare_data[airfare_data$Year == 2022, ]
   airfare2023 <- airfare_data[airfare_data$Year == 2023, ]
   airfare2024 <- airfare_data[airfare_data$Year == 2024, ]
   
-  # 3. remove bad data
+  # 6. remove bad data
   airfare2022 <- airfare2022[airfare2022$fare > 0, ]
   airfare2022 <- airfare2022[airfare2022$nsmiles > 0, ]
   
@@ -54,17 +59,17 @@ load_and_clean <- function() {
   airfare2024 <- airfare2024[airfare2024$fare > 0, ]
   airfare2024 <- airfare2024[airfare2024$nsmiles > 0, ]
   
-  # 4. remove extreme outliers
+  # 7. remove extreme outliers
   airfare2022 <- airfare2022[airfare2022$fare < 2000, ]
   airfare2023 <- airfare2023[airfare2023$fare < 2000, ]
   airfare2024 <- airfare2024[airfare2024$fare < 2000, ]
   
-  # 5. convert quarter to factor for proper ordering
+  # 8. convert quarter to factor for proper ordering
   airfare2022$quarter <- as.factor(airfare2022$quarter)
   airfare2023$quarter <- as.factor(airfare2023$quarter)
   airfare2024$quarter <- as.factor(airfare2024$quarter)
   
-  # 6: create quarter labels for readability
+  # 9: create quarter labels for readability
   create_quarter_labels <- function(data) {
     data$quarter_label <- NA
     data$quarter_label[data$quarter == 1] <- "Q1 (Jan-Mar)"
@@ -78,12 +83,12 @@ load_and_clean <- function() {
   airfare2023 <- create_quarter_labels(airfare2023)
   airfare2024 <- create_quarter_labels(airfare2024)
   
-  # 7. add year column back for filtering
+  # 10. add year column back for filtering
   airfare2022$year <- 2022
   airfare2023$year <- 2023
   airfare2024$year <- 2024
   
-  # 8. combine all years back together
+  # 11. combine all years back together
   airfare_data <- rbind(airfare2022, airfare2023, airfare2024)
   
   return(airfare_data)
