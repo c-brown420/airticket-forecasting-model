@@ -2,7 +2,6 @@ library(shiny)
 library(shinythemes)
 library(plotly)
 library(DT)   
-install.packages(c("plotly", "DT"))
 
 ui <- fluidPage(
   theme = shinytheme("flatly"),
