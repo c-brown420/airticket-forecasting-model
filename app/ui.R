@@ -147,6 +147,19 @@ ui <- fluidPage(
                       plotlyOutput("state_heatmap", height = "550px"),
                       br(),
                       dataTableOutput("state_fare_table")
+             ),
+             
+             # NEW TAB: Wyoming Analysis
+             tabPanel("Why is WYOMING so Expensive?",
+                      br(),
+                      h3("Wyoming Fare Analysis", style = "font-weight: bold;"),
+                      tableOutput("wyoming_analysis"),
+                      uiOutput("wyoming_explanation"),
+                      br(),
+                      h3("All States Comparison", style = "font-weight: bold;"),
+                      p("Click column headers to sort. Notice: States with longer average distances have higher fares.",
+                        style = "color: gray; font-size: 13px;"),
+                      DT::DTOutput("state_comparison")
              )
            )
     )
