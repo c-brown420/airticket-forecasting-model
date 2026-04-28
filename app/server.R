@@ -28,7 +28,7 @@ list.files("app/data/")
 load_and_clean <- function() {
   # load data
   airfare_data_a <- read.csv("data/Consumer_Airfare_Report.csv", stringsAsFactors = FALSE)
-  airfare_data_b <- read.csv("data/Consumer_Airfare_Report_Table6.csv", stringsAsFactors = FALSE)
+  airfare_data_b <- read.csv("data/Consumer_Airfare_Report_Table6_filtered.csv", stringsAsFactors = FALSE)
   
   common_cols <- intersect(names(airfare_data_a), names(airfare_data_b))
   airfare_data <- rbind(airfare_data_a[, common_cols], airfare_data_b[, common_cols])
