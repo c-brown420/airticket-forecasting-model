@@ -539,38 +539,16 @@ ui <- fluidPage(
                                )
                       ),
                       
-                      # ── TAB 5: Top Origins ──
-                      tabPanel("Top Origins",
-                               br(),
-                               div(class = "content-card",
-                                   div(class = "content-card-title", "Fare Distribution — Top 5 Origin Airports"),
-                                   plotlyOutput("box_plot_origin_quarter", height = "480px")
-                               )
-                      ),
-                      
-                      # ── TAB 6: Price Forecast ──
-                      tabPanel("Price Forecast",
-                               br(),
-                               div(class = "content-card",
-                                   div(class = "content-card-title", "Ticket Price vs Flight Distance"),
-                                   plotlyOutput("scatter_distance_fare", height = "440px")
-                               )
-                      ),
-                      
-                      # ── TAB 7: Feature Analysis ──
+                      # ── TAB 5: Feature Analysis ──
                       tabPanel("Feature Analysis",
                                br(),
                                div(class = "content-card",
                                    div(class = "content-card-title", "Feature Correlation with Ticket Price"),
                                    plotlyOutput("feature_correlation", height = "340px")
-                               ),
-                               div(class = "content-card",
-                                   div(class = "content-card-title", "Top Routes by Passenger Volume"),
-                                   dataTableOutput("top_routes")
                                )
                       ),
                       
-                      # ── TAB 8: Linear Regression ──
+                      # ── TAB 6: Linear Regression ──
                       tabPanel("Linear Regression",
                                br(),
                                div(class = "content-card",
@@ -597,7 +575,7 @@ ui <- fluidPage(
                                )
                       ),
                       
-                      # ── TAB 9: State Heatmap ──
+                      # ── TAB 7: State Heatmap ──
                       tabPanel("State Heatmap",
                                br(),
                                div(class = "content-card",

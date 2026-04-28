@@ -385,41 +385,6 @@ server <- function(input, output, session) {
   })
   
   # ========================================================================
-  # BOX PLOT 5: PRICE BY QUARTER - FACETED BY TOP ORIGINS
-  # ========================================================================
-  
-  output$box_plot_origin_quarter <- renderPlotly({
-    data <- filtered_data()
-    
-    # Get top 5 origin airports
-    origin_counts <- table(data$airport_1)
-    top_origins <- names(sort(origin_counts, decreasing = TRUE)[1:5])
-    
-    # Filter for top origins only
-    data <- data[data$airport_1 %in% top_origins, ]
-    
-    # Create faceted box plot
-    p <- ggplot(data, aes(x = quarter_label, y = fare, fill = quarter_label)) +
-      geom_boxplot(alpha = 0.7) +
-      facet_wrap(~airport_1, nrow = 2) +
-      theme_minimal() +
-      labs(
-        title = "Price Distribution by Quarter - Top 5 Origins",
-        x = "Quarter",
-        y = "Average Fare ($)"
-      ) +
-      theme(
-        plot.title = element_text(size = 14, face = "bold"),
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        strip.text = element_text(face = "bold"),
-        legend.position = "bottom"
-      ) +
-      scale_fill_brewer(palette = "Set2")
-    
-    ggplotly(p)
-  })
-  
-  # ========================================================================
   # QUARTERLY SUMMARY TABLE
   # ========================================================================
   
@@ -504,73 +469,6 @@ server <- function(input, output, session) {
       scale_fill_brewer(palette = "Dark2")
     
     ggplotly(p)
-  })
-  
-  # ========================================================================
-  # TOP ROUTES TABLE
-  # ========================================================================
-  
-  output$top_routes <- renderDataTable({
-    data <- filtered_data()
-    
-    # Convert passengers to numeric if it's a character
-    data$passengers <- as.numeric(gsub(",", "", data$passengers))
-    
-    # Create unique route combinations
-    routes <- data.frame(
-      origin = data$airport_1,
-      destination = data$airport_2,
-      passengers = data$passengers,
-      fare = data$fare
-    )
-    
-    # Remove rows with NA passengers
-    routes <- routes[!is.na(routes$passengers), ]
-    
-    # Aggregate by route
-    route_summary <- aggregate(
-      cbind(passengers, fare) ~ origin + destination,
-      data = routes,
-      FUN = function(x) c(sum = sum(x), mean = mean(x))
-    )
-    
-    # Sort by passenger volume
-    route_summary <- route_summary[order(route_summary$passengers[, 1], decreasing = TRUE), ]
-    route_summary <- route_summary[1:10, ]
-    
-    # Format output
-    output_table <- data.frame(
-      Origin = route_summary$origin,
-      Destination = route_summary$destination,
-      Total_Passengers = round(route_summary$passengers[, 1], 0),
-      Avg_Fare = round(route_summary$fare[, 2], 2)
-    )
-    
-    return(output_table)
-  }, options = list(pageLength = 10, searching = FALSE, paging = FALSE))
-  
-  # ========================================================================
-  # SCATTER PLOT: DISTANCE VS FARE
-  # ========================================================================
-  
-  output$scatter_distance_fare <- renderPlotly({
-    data <- filtered_data()
-    data$year <- as.factor(data$year)
-    
-    p <- ggplot(data, aes(x = nsmiles, y = fare, color = year,
-                          text = paste("Route:", airport_1, "->", airport_2,
-                                       "<br>Distance:", nsmiles, "miles",
-                                       "<br>Fare: $", round(fare, 2),
-                                       "<br>Airline:", carrier_lg))) +
-      geom_point(alpha = 0.3, size = 1) +
-      geom_smooth(method = "lm", se = TRUE, linewidth = 1) +
-      theme_minimal() +
-      labs(title = "Ticket Price vs Flight Distance by Year",
-           x = "Distance (miles)", y = "Fare ($)", color = "Year") +
-      theme(plot.title = element_text(size = 14, face = "bold")) +
-      scale_color_brewer(palette = "Set1")
-    
-    ggplotly(p, tooltip = "text")
   })
   
   # ========================================================================
