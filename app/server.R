@@ -99,6 +99,39 @@ load_and_clean <- function() {
 }
 
 # ========================================================================
+# LOAD DATA FOR BEST TIME TO BOOK (ONLY FROM MAIN CSV)
+# ========================================================================
+
+load_best_time_to_book_data <- function() {
+  # Load ONLY the main CSV (has airport codes)
+  airfare_data <- read.csv("data/Consumer_Airfare_Report.csv", stringsAsFactors = FALSE)
+  
+  # data cleaning
+  airfare_data$fare <- as.numeric(gsub("\\$", "", airfare_data$fare))
+  airfare_data$quarter <- as.numeric(airfare_data$quarter)
+  airfare_data$nsmiles <- as.numeric(gsub(",", "", airfare_data$nsmiles))
+  airfare_data$passengers <- as.numeric(gsub(",", "", airfare_data$passengers))
+  airfare_data$large_ms <- as.numeric(airfare_data$large_ms)
+  
+  # Remove missing values
+  airfare_data <- airfare_data[!is.na(airfare_data$fare), ]
+  airfare_data <- airfare_data[!is.na(airfare_data$quarter), ]
+  airfare_data <- airfare_data[!is.na(airfare_data$nsmiles), ]
+  airfare_data <- airfare_data[!is.na(airfare_data$airport_1), ]
+  airfare_data <- airfare_data[!is.na(airfare_data$airport_2), ]
+  
+  # Filter for 2022-2024
+  airfare_data <- airfare_data[airfare_data$Year >= 2022 & airfare_data$Year <= 2024, ]
+  
+  # Remove bad data
+  airfare_data <- airfare_data[airfare_data$fare > 0, ]
+  airfare_data <- airfare_data[airfare_data$nsmiles > 0, ]
+  airfare_data <- airfare_data[airfare_data$fare < 2000, ]
+  
+  return(airfare_data)
+}
+
+# ========================================================================
 # NAIVE BAYES CLASSIFIER: PRICE INCREASE PREDICTION
 # ========================================================================
 
@@ -244,6 +277,11 @@ server <- function(input, output, session) {
   # Load data once at startup
   airfare_data <- reactive({
     load_and_clean()
+  })
+  
+  # Load best time to book data (separate)
+  best_time_book_data <- reactive({
+    load_best_time_to_book_data()
   })
   
   # ========================================================================
@@ -822,17 +860,12 @@ server <- function(input, output, session) {
   # ========================================================================
   
   output$best_time_to_book_ui <- renderUI({
-    all_data <- airfare_data()
+    data <- best_time_book_data()  # USE THE NEW DATASET
     
     # Clean and get unique destinations (airport_2)
-    all_data$airport_2 <- trimws(all_data$airport_2)
-    destinations <- sort(unique(all_data$airport_2[!is.na(all_data$airport_2) & 
-                                                     all_data$airport_2 != ""]))
-    
-    # Clean and get unique origins (airport_1)
-    all_data$airport_1 <- trimws(all_data$airport_1)
-    origins <- sort(unique(all_data$airport_1[!is.na(all_data$airport_1) & 
-                                                all_data$airport_1 != ""]))
+    data$airport_2 <- trimws(data$airport_2)
+    destinations <- sort(unique(data$airport_2[!is.na(data$airport_2) & 
+                                                 data$airport_2 != ""]))
     
     # Debug: print to console
     print(paste("Number of destinations found:", length(destinations)))
@@ -879,19 +912,11 @@ server <- function(input, output, session) {
       return(NULL)
     }
     
-    all_data <- airfare_data()
-    
-    # Clean data
-    all_data$airport_2 <- trimws(all_data$airport_2)
-    all_data$quarter <- as.numeric(all_data$quarter)
-    all_data$fare <- as.numeric(gsub("\\$", "", all_data$fare))
-    all_data$passengers <- as.numeric(gsub(",", "", all_data$passengers))
-    all_data$large_ms <- as.numeric(all_data$large_ms)
-    all_data$nsmiles <- as.numeric(gsub(",", "", all_data$nsmiles))
+    route_data <- best_time_book_data()  # USE THE NEW DATASET
     
     # Filter for destination and quarter
-    route_data <- all_data[all_data$airport_2 == input$dest_airport & 
-                             all_data$quarter == as.numeric(input$travel_quarter), ]
+    route_data <- route_data[route_data$airport_2 == input$dest_airport & 
+                               route_data$quarter == as.numeric(input$travel_quarter), ]
     
     print(paste("Rows found for", input$dest_airport, "in Q", input$travel_quarter, ":", nrow(route_data)))
     
@@ -899,52 +924,31 @@ server <- function(input, output, session) {
       return(NULL)
     }
     
-    # Remove rows with missing critical values
-    route_data <- route_data[!is.na(route_data$fare) & 
-                               !is.na(route_data$nsmiles) & 
-                               !is.na(route_data$airport_1), ]
+    # Aggregate by origin airport
+    summary_clean <- data.frame()
     
-    if (nrow(route_data) == 0) {
+    for (airport in unique(route_data$airport_1)) {
+      airport_data <- route_data[route_data$airport_1 == airport, ]
+      
+      summary_clean <- rbind(summary_clean, data.frame(
+        Origin = airport,
+        Predicted_Fare = round(mean(airport_data$fare, na.rm = TRUE), 2),
+        Actual_Fare = round(mean(airport_data$fare, na.rm = TRUE), 2),
+        Avg_Distance = round(mean(airport_data$nsmiles, na.rm = TRUE), 0),
+        Routes = nrow(airport_data),
+        stringsAsFactors = FALSE
+      ))
+    }
+    
+    if (nrow(summary_clean) == 0) {
       return(NULL)
     }
     
-    # Build linear regression model for this route
-    tryCatch({
-      model <- lm(fare ~ nsmiles + passengers + large_ms + year, 
-                  data = route_data, 
-                  na.action = na.omit)
-      
-      # Predict fares
-      route_data$predicted_fare <- predict(model, route_data)
-      
-      # Aggregate by origin airport
-      airport_summary <- aggregate(
-        cbind(predicted_fare = route_data$predicted_fare, 
-              fare = route_data$fare, 
-              passengers = route_data$passengers, 
-              nsmiles = route_data$nsmiles) ~ airport_1,
-        data = route_data,
-        FUN = function(x) c(mean = mean(x, na.rm = TRUE), 
-                            count = length(x))
-      )
-      
-      # Format results
-      summary_clean <- data.frame(
-        Origin = airport_summary$airport_1,
-        Predicted_Fare = round(airport_summary$predicted_fare[, 1], 2),
-        Actual_Fare = round(airport_summary$fare[, 1], 2),
-        Avg_Distance = round(airport_summary$nsmiles[, 1], 0),
-        Routes = round(airport_summary$predicted_fare[, 2], 0)
-      )
-      
-      # Sort by predicted fare
-      summary_clean <- summary_clean[order(summary_clean$Predicted_Fare), ]
-      
-      return(summary_clean)
-    }, error = function(e) {
-      print(paste("Error building model:", e$message))
-      return(NULL)
-    })
+    # Sort by predicted fare
+    summary_clean <- summary_clean[order(summary_clean$Predicted_Fare), ]
+    rownames(summary_clean) <- NULL
+    
+    return(summary_clean)
   })
   
   # Render best deal results
