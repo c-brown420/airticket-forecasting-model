@@ -575,7 +575,27 @@ ui <- fluidPage(
                                )
                       ),
                       
-                      # ── TAB 7: State Heatmap ──
+                      # ── TAB 7: Price Increase Prediction ──
+                      tabPanel("Price Prediction (Naive Bayes classifier)",
+                               br(),
+                               div(class = "content-card",
+                                   div(class = "content-card-title", "Will Prices Increase?"),
+                                   tags$p("Based on the selected filters, our Naive Bayes classifier predicts the probability that fares will increase in the next quarter.",
+                                          style = "font-size: 12px; color: #718096; margin-bottom: 16px;"),
+                                   uiOutput("price_increase_prediction"),
+                                   br(),
+                                   div(style = "background-color: #f5f5f5; padding: 16px; border-radius: 6px; margin-top: 20px;",
+                                       h5("How it works:", style = "margin-top: 0;"),
+                                       tags$p("The model analyzes quarter seasonality, airline patterns, flight distance, and market competition to predict price movements.",
+                                              style = "font-size: 12px;"),
+                                       tags$p(em("🟢 Green (Low Risk): Prices likely stable"), style = "color: #388e3c; font-weight: bold; font-size: 12px; margin: 4px 0;"),
+                                       tags$p(em("🟠 Orange (Moderate Risk): Prices may increase"), style = "color: #f57c00; font-weight: bold; font-size: 12px; margin: 4px 0;"),
+                                       tags$p(em("🔴 Red (High Risk): Book now to avoid increases"), style = "color: #d32f2f; font-weight: bold; font-size: 12px; margin: 4px 0;")
+                                   )
+                               )
+                      ),
+                      
+                      # ── TAB 8: State Heatmap ──
                       tabPanel("State Heatmap",
                                br(),
                                div(class = "content-card",

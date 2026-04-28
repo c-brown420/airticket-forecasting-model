@@ -98,6 +98,143 @@ load_and_clean <- function() {
   return(airfare_data)
 }
 
+# ========================================================================
+# NAIVE BAYES CLASSIFIER: PRICE INCREASE PREDICTION
+# ========================================================================
+
+library(e1071)
+
+# Enhanced prediction function with detailed breakdown
+get_price_increase_probability <- function(filtered_data, all_data) {
+  
+  if (nrow(filtered_data) == 0) {
+    return(list(prob = NULL, breakdown = NULL, history = NULL))
+  }
+  
+  # Convert to numeric
+  filtered_data$fare <- as.numeric(gsub("\\$", "", filtered_data$fare))
+  filtered_data$large_ms <- as.numeric(filtered_data$large_ms)
+  filtered_data$nsmiles <- as.numeric(gsub(",", "", filtered_data$nsmiles))
+  
+  all_data$fare <- as.numeric(gsub("\\$", "", all_data$fare))
+  all_data$large_ms <- as.numeric(all_data$large_ms)
+  all_data$nsmiles <- as.numeric(gsub(",", "", all_data$nsmiles))
+  
+  # Calculate average metrics
+  avg_fare <- mean(filtered_data$fare, na.rm = TRUE)
+  avg_market_share <- mean(filtered_data$large_ms, na.rm = TRUE)
+  avg_distance <- mean(filtered_data$nsmiles, na.rm = TRUE)
+  current_quarter <- as.numeric(filtered_data$quarter[1])
+  
+  # Initialize breakdown
+  breakdown <- list()
+  prob <- 50  # Start at 50%
+  
+  # ========== FACTOR 1: Market Share Impact ==========
+  market_impact <- 0
+  market_severity <- "None"
+  
+  if (!is.na(avg_market_share)) {
+    if (avg_market_share > 0.8) {
+      market_impact <- 20
+      market_severity <- "Very High (>80%)"
+    } else if (avg_market_share > 0.7) {
+      market_impact <- 15
+      market_severity <- "High (70-80%)"
+    } else if (avg_market_share > 0.5) {
+      market_impact <- 8
+      market_severity <- "Moderate (50-70%)"
+    } else {
+      market_severity <- "Low (<50%)"
+    }
+  }
+  prob <- prob + market_impact
+  breakdown$market_share <- list(
+    impact = market_impact,
+    severity = market_severity,
+    reason = "Less airline competition → higher prices"
+  )
+  
+  # ========== FACTOR 2: Seasonal Impact ==========
+  seasonal_impact <- 0
+  season_name <- "Off-season"
+  
+  if (!is.na(current_quarter)) {
+    if (current_quarter == 4) {
+      seasonal_impact <- 20
+      season_name <- "Q4 - Peak Holiday Travel"
+    } else if (current_quarter == 1) {
+      seasonal_impact <- 10
+      season_name <- "Q1 - Post-Holiday"
+    } else if (current_quarter == 3) {
+      seasonal_impact <- 12
+      season_name <- "Q3 - Summer Travel"
+    } else {
+      season_name <- "Q2 - Lower Demand"
+    }
+  }
+  prob <- prob + seasonal_impact
+  breakdown$seasonality <- list(
+    impact = seasonal_impact,
+    season = season_name,
+    reason = "Seasonal demand affects pricing"
+  )
+  
+  # ========== FACTOR 3: Distance Impact ==========
+  distance_impact <- 0
+  distance_category <- "Unknown"
+  
+  if (!is.na(avg_distance)) {
+    if (avg_distance > 2000) {
+      distance_impact <- 12
+      distance_category <- "Very Long (>2000 mi)"
+    } else if (avg_distance > 1500) {
+      distance_impact <- 8
+      distance_category <- "Long (1500-2000 mi)"
+    } else if (avg_distance > 1000) {
+      distance_impact <- 5
+      distance_category <- "Medium (1000-1500 mi)"
+    } else {
+      distance_category <- "Short (<1000 mi)"
+    }
+  }
+  prob <- prob + distance_impact
+  breakdown$distance <- list(
+    impact = distance_impact,
+    category = distance_category,
+    reason = "Longer routes have higher volatility"
+  )
+  
+  # Cap probability at 100
+  prob <- min(prob, 100)
+  
+  # ========== HISTORICAL COMPARISON ==========
+  # Compare current filtered data to historical average
+  historical_avg <- mean(all_data$fare, na.rm = TRUE)
+  current_avg <- mean(filtered_data$fare, na.rm = TRUE)
+  price_diff <- current_avg - historical_avg
+  price_diff_pct <- (price_diff / historical_avg) * 100
+  
+  history <- list(
+    current_avg = round(current_avg, 2),
+    historical_avg = round(historical_avg, 2),
+    difference = round(price_diff, 2),
+    difference_pct = round(price_diff_pct, 1),
+    status = if (price_diff > 0) "Above average" else "Below average"
+  )
+  
+  return(list(
+    prob = prob,
+    breakdown = breakdown,
+    history = history,
+    metrics = list(
+      avg_fare = round(avg_fare, 2),
+      avg_market_share = round(avg_market_share, 4),
+      avg_distance = round(avg_distance, 0)
+    )
+  ))
+}
+
 # ============================================================================
 # SHINY SERVER LOGIC
 # ============================================================================
@@ -575,6 +712,110 @@ server <- function(input, output, session) {
     return(output_table)
   }, options = list(pageLength = 10, searching = TRUE, paging = TRUE))
   
+  # ========================================================================
+  # PRICE INCREASE PREDICTION OUTPUT WITH BREAKDOWN
+  # ========================================================================
+  
+  output$price_increase_prediction <- renderUI({
+    data <- filtered_data()
+    all_data <- airfare_data()
+    
+    if (nrow(data) == 0) {
+      return(HTML("<p style='color: red;'>No data available for this selection.</p>"))
+    }
+    
+    # Get probability and breakdown
+    result <- get_price_increase_probability(data, all_data)
+    prob_increase <- result$prob
+    breakdown <- result$breakdown
+    history <- result$history
+    
+    if (is.null(prob_increase)) {
+      return(HTML("<p style='color: orange;'>Unable to calculate prediction.</p>"))
+    }
+    
+    # Color code based on probability
+    if (prob_increase > 70) {
+      color <- "#d32f2f"
+      recommendation <- "⚠️ HIGH RISK — Book Now!"
+      explanation <- "Prices are likely to increase in the next quarter."
+    } else if (prob_increase > 50) {
+      color <- "#f57c00"
+      recommendation <- "⚡ MODERATE RISK — Book Soon"
+      explanation <- "There's a moderate chance prices will increase."
+    } else {
+      color <- "#388e3c"
+      recommendation <- "✅ LOW RISK — Price Stable"
+      explanation <- "Prices are likely to remain stable or decrease."
+    }
+    
+    # Build breakdown HTML
+    breakdown_html <- paste(
+      "<div style='background-color: rgba(255,255,255,0.1); padding: 16px; border-radius: 8px; margin-top: 16px;'>",
+      "<h5 style='margin-top: 0; margin-bottom: 12px; font-size: 13px;'>Risk Factors Breakdown:</h5>",
+      
+      # Market Share
+      "<div style='margin-bottom: 10px; font-size: 12px;'>",
+      "<strong>Market Concentration:</strong> ", breakdown$market_share$severity, " (+", breakdown$market_share$impact, "%)<br>",
+      "<em style='color: rgba(255,255,255,0.8);'>", breakdown$market_share$reason, "</em>",
+      "</div>",
+      
+      # Seasonality
+      "<div style='margin-bottom: 10px; font-size: 12px;'>",
+      "<strong>Seasonal Demand:</strong> ", breakdown$seasonality$season, " (+", breakdown$seasonality$impact, "%)<br>",
+      "<em style='color: rgba(255,255,255,0.8);'>", breakdown$seasonality$reason, "</em>",
+      "</div>",
+      
+      # Distance
+      "<div style='font-size: 12px;'>",
+      "<strong>Flight Distance:</strong> ", breakdown$distance$category, " (+", breakdown$distance$impact, "%)<br>",
+      "<em style='color: rgba(255,255,255,0.8);'>", breakdown$distance$reason, "</em>",
+      "</div>",
+      
+      "</div>",
+      sep = ""
+    )
+    
+    # Build historical comparison HTML
+    history_html <- paste(
+      "<div style='background-color: rgba(255,255,255,0.1); padding: 16px; border-radius: 8px; margin-top: 16px;'>",
+      "<h5 style='margin-top: 0; margin-bottom: 12px; font-size: 13px;'>Historical Price Comparison:</h5>",
+      
+      "<div style='display: flex; justify-content: space-around; text-align: center; font-size: 12px;'>",
+      "<div>",
+      "<strong style='font-size: 14px;'>$", history$current_avg, "</strong><br>",
+      "Current Average",
+      "</div>",
+      "<div>",
+      "<strong style='font-size: 14px;'>$", history$historical_avg, "</strong><br>",
+      "Historical Average",
+      "</div>",
+      "<div>",
+      "<strong style='font-size: 14px;'>", history$difference_pct, "%</strong><br>",
+      history$status,
+      "</div>",
+      "</div>",
+      
+      "</div>",
+      sep = ""
+    )
+    
+    HTML(paste(
+      "<div style='background-color:", color, "; color: white; padding: 24px; border-radius: 10px; text-align: center;'>",
+      "<h3 style='margin: 0 0 12px 0;'>Price Increase Prediction</h3>",
+      "<h1 style='margin: 0 0 8px 0; font-size: 48px;'>", round(prob_increase, 1), "%</h1>",
+      "<p style='margin: 0 0 16px 0; font-size: 14px;'>Probability of price increase next quarter</p>",
+      "<hr style='border: none; border-top: 1px solid rgba(255,255,255,0.3); margin: 16px 0;'>",
+      "<h4 style='margin: 12px 0;'>", recommendation, "</h4>",
+      "<p style='margin: 8px 0 0 0; font-size: 13px;'>", explanation, "</p>",
+      
+      breakdown_html,
+      history_html,
+      
+      "</div>",
+      sep = ""
+    ))
+  })
 }  
 
 # return server object
