@@ -445,6 +445,7 @@ ui <- fluidPage(
       )
   ),
   
+<<<<<<< HEAD
   # ── Hero Banner ──
   div(class = "hero-banner",
       div(class = "hero-text",
@@ -619,6 +620,125 @@ ui <- fluidPage(
   # ── Footer ──
   div(class = "app-footer",
       "AirFare Analytics Dashboard · Data: U.S. Department of Transportation · Consumer Airfare Report Table 1a"
+=======
+  fluidRow(
+    # SIDEBAR - FILTERS
+    column(width = 3,
+           h4("Filters", style = "font-weight: bold;"),
+           
+           # Year selector
+           selectInput("year_select", "Select Year:", 
+                       choices = c(2022, 2023, 2024), 
+                       selected = 2024),
+           
+           # Origin airport - NOW DYNAMIC
+           selectInput("origin_airport", "Origin Airport:",
+                       choices = get_airports(),
+                       selected = "All"),
+           
+           # Distance range
+           sliderInput("distance_range", "Flight Distance (miles):",
+                       min = 0, max = 3000,
+                       value = c(0, 3000),
+                       step = 100),
+           
+           selectInput("airline_filter", "Airline:",
+                       choices = get_airlines(),
+                       selected = "All"),
+           
+           hr(),
+           
+           # Summary stats
+           h4("Summary Statistics", style = "font-weight: bold;"),
+           
+           div(style = "background-color: #ecf0f1; padding: 10px; border-radius: 5px; margin: 5px 0;",
+               p("Mean Fare:", br(), textOutput("stat_mean_fare"), style = "font-size: 14px; font-weight: bold;")
+           ),
+           
+           div(style = "background-color: #ecf0f1; padding: 10px; border-radius: 5px; margin: 5px 0;",
+               p("Median Fare:", br(), textOutput("stat_median_fare"), style = "font-size: 14px; font-weight: bold;")
+           ),
+           
+           div(style = "background-color: #ecf0f1; padding: 10px; border-radius: 5px; margin: 5px 0;",
+               p("Records:", br(), textOutput("stat_records"), style = "font-size: 14px; font-weight: bold;")
+           )
+    ),
+    
+    # MAIN CONTENT
+    column(width = 9,
+           tabsetPanel(
+             # TAB 1: Primary box plot
+             tabPanel("Quarterly Trends",
+                      br(),
+                      plotlyOutput("box_plot_quarter", height = "500px"),
+                      br(),
+                      dataTableOutput("quarterly_summary_table")
+             ),
+             
+             # TAB 2: Years comparison
+             tabPanel("Year Comparison",
+                      br(),
+                      plotlyOutput("box_plot_years_comparison", height = "500px")
+             ),
+             
+             # TAB 3: By airline
+             tabPanel("By Airline",
+                      br(),
+                      plotlyOutput("box_plot_airline", height = "500px")
+             ),
+             
+             # TAB 4: By distance
+             tabPanel("Distance Analysis",
+                      br(),
+                      plotlyOutput("box_plot_distance_quarter", height = "500px")
+             ),
+             
+             # TAB 5: By origin
+             tabPanel("Top Origins",
+                      br(),
+                      plotlyOutput("box_plot_origin_quarter", height = "600px")
+             ),
+             
+             tabPanel("Price Forecast",
+                      br(),
+                      plotlyOutput("scatter_distance_fare", height = "500px")
+             ),
+             
+             # TAB 6: Feature importance
+             tabPanel("Feature Analysis",
+                      br(),
+                      plotlyOutput("feature_correlation", height = "400px"),
+                      br(),
+                      h4("Top Routes by Passenger Volume"),
+                      dataTableOutput("top_routes")
+             ),
+             
+             # TAB 7: State Heatmap (NEW)
+             tabPanel("State Heatmap",
+                      br(),
+                      h4("Mean Fare by Origin State", style = "font-weight: bold; text-align: center;"),
+                      p("States are shaded by mean airfare from airports in that state. Green = cheaper, Red = more expensive.",
+                        style = "text-align: center; color: gray; font-size: 13px;"),
+                      plotlyOutput("state_heatmap", height = "550px"),
+                      br(),
+                      dataTableOutput("state_fare_table")
+             ),
+             
+             # NEW TAB: Wyoming Analysis
+             tabPanel("Why is WYOMING so Expensive?",
+                      br(),
+                      h3("Wyoming Fare Analysis", style = "font-weight: bold;"),
+                      tableOutput("wyoming_analysis"),
+                      uiOutput("wyoming_explanation"),
+                      br(),
+                      h3("All States Comparison", style = "font-weight: bold;"),
+                      p("Click column headers to sort. Notice: States with longer average distances have higher fares.",
+                        style = "color: gray; font-size: 13px;"),
+                      DT::DTOutput("state_comparison")
+             )
+           )
+    )
+>>>>>>> 3865f74e0e879ab948e8319e5c670b34caa93903
   )
   
 )
