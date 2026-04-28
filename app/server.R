@@ -3,8 +3,8 @@ library(tidyverse)
 library(ggplot2)
 library(plotly)
 # NOTE: UI should have a year selector
-# selectInput("year_select", "Select Year:", 
-#             choices = c(2022, 2023, 2024), 
+# selectInput("year_select", "Select Year:",
+#             choices = c(2022, 2023, 2024),
 #             selected = 2024)
 # NOTE 2: USE THE ACTUAL COLUMN NAMES
 # "tbl","Year","quarter","citymarketid_1",
@@ -677,100 +677,6 @@ server <- function(input, output, session) {
     return(output_table)
   }, options = list(pageLength = 10, searching = TRUE, paging = TRUE))
   
-  # ========================================================================
-  # WYOMING ROUTE ANALYSIS
-  # ========================================================================
-  output$wyoming_analysis <- renderTable({
-    data <- filtered_data()
-    wy_data <- data[data$airport_1 == "JAC" | data$airport_1 == "LAR" | data$airport_1 == "RKS", ]
-    
-    avg_distance <- mean(wy_data$nsmiles, na.rm = TRUE)
-    avg_fare <- mean(wy_data$fare, na.rm = TRUE)
-    fare_per_mile <- avg_fare / avg_distance
-    
-    summary_stats <- data.frame(
-      Metric = c("Average Distance", "Average Fare", "Fare per Mile", "Record Count"),
-      Value = c(
-        round(avg_distance, 0),
-        round(avg_fare, 2),
-        round(fare_per_mile, 4),
-        nrow(wy_data)
-      )
-    )
-    return(summary_stats)
-  })
-  
-  # ========================================================================
-  # STATE COMPARISON
-  # ========================================================================
-  output$state_comparison <- renderDataTable({
-    data <- filtered_data()
-    
-    # Extract state from city1
-    extract_state <- function(city_str) {
-      if (is.na(city_str)) return(NA)
-      match <- regexpr(", ([A-Z]{2})", city_str)
-      if (match > 0) {
-        return(substring(city_str, match + 2, match + 3))
-      }
-      return(NA)
-    }
-    
-    data$state <- sapply(data$city1, extract_state)
-    
-    # Remove rows with NA state
-    data <- data[!is.na(data$state), ]
-    
-    # Calculate stats by state manually
-    states <- unique(data$state)
-    state_summary <- data.frame()
-    
-    for (st in states) {
-      state_data <- data[data$state == st, ]
-      
-      state_summary <- rbind(state_summary, data.frame(
-        State = st,
-        Avg_Distance = round(mean(state_data$nsmiles, na.rm = TRUE), 0),
-        Avg_Fare = round(mean(state_data$fare, na.rm = TRUE), 2),
-        Fare_Per_Mile = round(mean(state_data$fare, na.rm = TRUE) / mean(state_data$nsmiles, na.rm = TRUE), 4),
-        Records = nrow(state_data)
-      ))
-    }
-    
-    # Sort by average fare descending
-    state_summary <- state_summary[order(state_summary$Avg_Fare, decreasing = TRUE), ]
-    rownames(state_summary) <- NULL
-    
-    return(state_summary)
-  }, options = list(pageLength = 20, searching = TRUE, paging = TRUE))
-  
-  # Explanation text
-  output$wyoming_explanation <- renderUI({
-    HTML(
-      "<div style='background-color: #fff3cd; padding: 15px; border-radius: 5px; margin-top: 20px;'>
-      <h4>⚠️ Why is Wyoming's Fare So High?</h4>
-      <p><strong>Wyoming has the highest average fare at $544.08 with a fare-per-mile rate of $0.287 — nearly 2x higher than most states.</strong></p>
-      
-      <h5>Key Factors:</h5>
-      <ul>
-        <li><strong>Limited Airport Capacity:</strong> Wyoming airports like Jackson Hole (JAC) are among the smallest in the U.S., with very few daily flights. This scarcity means airlines have little incentive to lower fares.</li>
-        <li><strong>Low Competition:</strong> Many Wyoming airports are served by a single airline (often United) that receives federal subsidies. Without competition, airlines can set higher prices.</li>
-        <li><strong>High Demand + Low Supply:</strong> Tourism to Yellowstone and the Tetons is seasonal and concentrated. Summer demand spikes create imbalances, pushing fares higher.</li>
-        <li><strong>Remote Location & Routing Costs:</strong> Flights often require connections through hubs like Denver (DEN), adding time and cost compared to direct routes.</li>
-        <li><strong>Seasonal Effects:</strong> Peak travel seasons and last-minute bookings further inflate prices in Wyoming's unique market.</li>
-      </ul>
-      
-      <h5>💡 Money-Saving Tips:</h5>
-      <ul>
-        <li>Book early and use price alerts for connecting flights</li>
-        <li>Consider flying into nearby cities (Denver, Cheyenne, Casper) and driving into the parks</li>
-        <li>Check alternative airports like Bozeman (BZN) or Billings (BIL) for better rates and more flight options</li>
-      </ul>
-      
-      <p><strong>Bottom line:</strong> Wyoming's remote airports with limited capacity and airline competition make flights expensive, but strategic booking and alternative airports can help reduce costs.</p>
-    </div>"
-    )
-  })
 }  
 
 # return server object
