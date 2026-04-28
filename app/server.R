@@ -1027,6 +1027,120 @@ server <- function(input, output, session) {
     
     return(result)
   }, options = list(pageLength = 10, searching = TRUE, paging = TRUE))
+  
+  # ========================================================================
+  # MODEL COMPARISON TAB
+  # ========================================================================
+  
+  output$model_comparison_ui <- renderUI({
+    div(
+      div(class = "content-card",
+          div(class = "content-card-title", "Compare Model Predictions"),
+          tags$p("See how the Naive Bayes and Linear Regression models predict prices differently.",
+                 style = "font-size: 12px; color: #718096; margin-bottom: 16px;"),
+          
+          fluidRow(
+            column(6,
+                   h4("Linear Regression Model", style = "color: #4a90d9;"),
+                   tableOutput("lr_model_summary")
+            ),
+            column(6,
+                   h4("Naive Bayes Classifier", style = "color: #388e3c;"),
+                   tableOutput("nb_model_summary")
+            )
+          ),
+          
+          hr(),
+          
+          h4("Key Differences:", style = "margin-top: 20px;"),
+          dataTableOutput("model_comparison_table")
+      )
+    )
+  })
+  
+  # Linear Regression Summary
+  output$lr_model_summary <- renderTable({
+    data <- filtered_data()
+    
+    if (nrow(data) == 0) {
+      return(data.frame(Metric = "No data available"))
+    }
+    
+    data$passengers <- as.numeric(gsub(",", "", data$passengers))
+    data$large_ms <- as.numeric(data$large_ms)
+    
+    model <- lm(fare ~ nsmiles + passengers + large_ms + quarter, data = data)
+    
+    predicted <- predict(model, data)
+    actual <- data$fare
+    
+    rmse <- sqrt(mean((actual - predicted)^2, na.rm = TRUE))
+    mae <- mean(abs(actual - predicted), na.rm = TRUE)
+    r2 <- summary(model)$r.squared
+    
+    data.frame(
+      Metric = c("R-squared", "RMSE", "MAE", "Model Type", "Output"),
+      Value = c(
+        round(r2, 4),
+        round(rmse, 2),
+        round(mae, 2),
+        "Continuous",
+        "Predicted Fare ($)"
+      )
+    )
+  }, striped = TRUE, hover = TRUE)
+  
+  # Naive Bayes Summary
+  output$nb_model_summary <- renderTable({
+    data <- filtered_data()
+    all_data <- airfare_data()
+    
+    if (nrow(data) == 0) {
+      return(data.frame(Metric = "No data available"))
+    }
+    
+    result <- get_price_increase_probability(data, all_data)
+    
+    data.frame(
+      Metric = c("Probability", "Risk Level", "Model Type", "Output"),
+      Value = c(
+        paste0(round(result$prob, 1), "%"),
+        if (result$prob > 70) "High" else if (result$prob > 50) "Moderate" else "Low",
+        "Binary Classification",
+        "Price Increase? (Yes/No)"
+      )
+    )
+  }, striped = TRUE, hover = TRUE)
+  
+  # Comparison Table
+  output$model_comparison_table <- renderDataTable({
+    data.frame(
+      Aspect = c(
+        "Purpose",
+        "Output Type",
+        "Best For",
+        "Accuracy Metric",
+        "Prediction Example",
+        "Factors Considered"
+      ),
+      Linear_Regression = c(
+        "Predict exact fare prices",
+        "Continuous numeric value",
+        "Finding specific price estimates",
+        "RMSE, MAE, R²",
+        "$285.50 ± $45",
+        "Distance, passengers, market share, quarter"
+      ),
+      Naive_Bayes = c(
+        "Predict if prices will increase",
+        "Binary classification (Yes/No)",
+        "Booking decision guidance",
+        "Probability percentage",
+        "83% chance prices go up",
+        "Market concentration, seasonality, distance"
+      )
+    )
+  }, options = list(pageLength = 10, searching = FALSE, paging = FALSE))
 }  
 
 # return server object

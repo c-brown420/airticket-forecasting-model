@@ -614,6 +614,12 @@ ui <- fluidPage(
                                    div(class = "content-card-title", "State Fare Summary"),
                                    dataTableOutput("state_fare_table")
                                )
+                      ),
+                      
+                      # ── TAB 10: Model Comparison ──
+                      tabPanel("Model Comparison",
+                               br(),
+                               uiOutput("model_comparison_ui")
                       )
                       
           ) # end tabsetPanel
