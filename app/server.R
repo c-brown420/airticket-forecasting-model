@@ -816,6 +816,213 @@ server <- function(input, output, session) {
       sep = ""
     ))
   })
+  
+  # ========================================================================
+  # BEST TIME TO BOOK - INTERACTIVE PREDICTION TOOL
+  # ========================================================================
+  
+  output$best_time_to_book_ui <- renderUI({
+    all_data <- airfare_data()
+    
+    # Clean and get unique destinations (airport_2)
+    all_data$airport_2 <- trimws(all_data$airport_2)
+    destinations <- sort(unique(all_data$airport_2[!is.na(all_data$airport_2) & 
+                                                     all_data$airport_2 != ""]))
+    
+    # Clean and get unique origins (airport_1)
+    all_data$airport_1 <- trimws(all_data$airport_1)
+    origins <- sort(unique(all_data$airport_1[!is.na(all_data$airport_1) & 
+                                                all_data$airport_1 != ""]))
+    
+    # Debug: print to console
+    print(paste("Number of destinations found:", length(destinations)))
+    print(paste("Sample destinations:", paste(head(destinations, 5), collapse = ", ")))
+    
+    div(
+      div(class = "content-card",
+          div(class = "content-card-title", "Find Your Best Flight Deal"),
+          tags$p("Select your preferred destination and travel quarter to find the cheapest departure airport and optimal booking time.",
+                 style = "font-size: 12px; color: #718096; margin-bottom: 16px;"),
+          
+          fluidRow(
+            column(4,
+                   selectInput("dest_airport", "Destination Airport",
+                               choices = c("Select destination..." = "", destinations),
+                               selected = "")
+            ),
+            column(4,
+                   selectInput("travel_quarter", "Travel Quarter",
+                               choices = c("Select quarter..." = "", 
+                                           "Q1 (Jan-Mar)" = 1,
+                                           "Q2 (Apr-Jun)" = 2,
+                                           "Q3 (Jul-Sep)" = 3,
+                                           "Q4 (Oct-Dec)" = 4),
+                               selected = "")
+            ),
+            column(4,
+                   actionButton("predict_btn", "Find Best Deal", 
+                                style = "margin-top: 25px; width: 100%; background-color: #4a90d9; color: white; border: none; padding: 8px; cursor: pointer;")
+            )
+          ),
+          
+          hr(style = "margin: 20px 0;"),
+          
+          uiOutput("best_deal_results")
+      )
+    )
+  })
+  
+  # Reactive expression for best deal calculation
+  best_deal_data <- eventReactive(input$predict_btn, {
+    
+    if (input$dest_airport == "" || input$travel_quarter == "") {
+      return(NULL)
+    }
+    
+    all_data <- airfare_data()
+    
+    # Clean data
+    all_data$airport_2 <- trimws(all_data$airport_2)
+    all_data$quarter <- as.numeric(all_data$quarter)
+    all_data$fare <- as.numeric(gsub("\\$", "", all_data$fare))
+    all_data$passengers <- as.numeric(gsub(",", "", all_data$passengers))
+    all_data$large_ms <- as.numeric(all_data$large_ms)
+    all_data$nsmiles <- as.numeric(gsub(",", "", all_data$nsmiles))
+    
+    # Filter for destination and quarter
+    route_data <- all_data[all_data$airport_2 == input$dest_airport & 
+                             all_data$quarter == as.numeric(input$travel_quarter), ]
+    
+    print(paste("Rows found for", input$dest_airport, "in Q", input$travel_quarter, ":", nrow(route_data)))
+    
+    if (nrow(route_data) == 0) {
+      return(NULL)
+    }
+    
+    # Remove rows with missing critical values
+    route_data <- route_data[!is.na(route_data$fare) & 
+                               !is.na(route_data$nsmiles) & 
+                               !is.na(route_data$airport_1), ]
+    
+    if (nrow(route_data) == 0) {
+      return(NULL)
+    }
+    
+    # Build linear regression model for this route
+    tryCatch({
+      model <- lm(fare ~ nsmiles + passengers + large_ms + year, 
+                  data = route_data, 
+                  na.action = na.omit)
+      
+      # Predict fares
+      route_data$predicted_fare <- predict(model, route_data)
+      
+      # Aggregate by origin airport
+      airport_summary <- aggregate(
+        cbind(predicted_fare = route_data$predicted_fare, 
+              fare = route_data$fare, 
+              passengers = route_data$passengers, 
+              nsmiles = route_data$nsmiles) ~ airport_1,
+        data = route_data,
+        FUN = function(x) c(mean = mean(x, na.rm = TRUE), 
+                            count = length(x))
+      )
+      
+      # Format results
+      summary_clean <- data.frame(
+        Origin = airport_summary$airport_1,
+        Predicted_Fare = round(airport_summary$predicted_fare[, 1], 2),
+        Actual_Fare = round(airport_summary$fare[, 1], 2),
+        Avg_Distance = round(airport_summary$nsmiles[, 1], 0),
+        Routes = round(airport_summary$predicted_fare[, 2], 0)
+      )
+      
+      # Sort by predicted fare
+      summary_clean <- summary_clean[order(summary_clean$Predicted_Fare), ]
+      
+      return(summary_clean)
+    }, error = function(e) {
+      print(paste("Error building model:", e$message))
+      return(NULL)
+    })
+  })
+  
+  # Render best deal results
+  output$best_deal_results <- renderUI({
+    result <- best_deal_data()
+    
+    if (is.null(result)) {
+      return(HTML("<p style='color: #f57c00;'>⚠️ No data available for this route and quarter. Try a different combination.</p>"))
+    }
+    
+    best_airport <- result$Origin[1]
+    best_fare <- result$Predicted_Fare[1]
+    worst_airport <- result$Origin[nrow(result)]
+    worst_fare <- result$Predicted_Fare[nrow(result)]
+    savings <- worst_fare - best_fare
+    savings_pct <- (savings / worst_fare) * 100
+    
+    # Determine booking window based on quarter
+    quarter_num <- as.numeric(input$travel_quarter)
+    if (quarter_num == 4) {
+      booking_window <- "60-90 days in advance"
+      booking_reason <- "Q4 is peak holiday season - book early!"
+    } else if (quarter_num == 1) {
+      booking_window <- "45-60 days in advance"
+      booking_reason <- "Post-holiday period - moderate demand"
+    } else if (quarter_num == 3) {
+      booking_window <- "45-75 days in advance"
+      booking_reason <- "Summer travel - book well ahead"
+    } else {
+      booking_window <- "30-45 days in advance"
+      booking_reason <- "Spring season - moderate booking window"
+    }
+    
+    # Build recommendation card
+    recommendation_html <- paste(
+      "<div style='background: linear-gradient(135deg, #388e3c 0%, #2e7d32 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 16px;'>",
+      "<h4 style='margin: 0 0 12px 0;'>✅ Best Deal Found</h4>",
+      "<div style='font-size: 24px; font-weight: bold; margin-bottom: 8px;'>$", best_fare, "</div>",
+      "<p style='margin: 0 0 12px 0; font-size: 14px;'>",
+      "Depart from <strong>", best_airport, "</strong> to <strong>", input$dest_airport, 
+      "</strong> in <strong>Q", input$travel_quarter, "</strong>",
+      "</p>",
+      "<div style='background: rgba(255,255,255,0.2); padding: 12px; border-radius: 6px; margin-bottom: 12px;'>",
+      "<strong>Recommended Booking Window:</strong> ", booking_window, "<br>",
+      "<em>", booking_reason, "</em>",
+      "</div>",
+      "<p style='margin: 0; font-size: 13px;'>",
+      "Save up to <strong>$", round(savings, 2), " (", round(savings_pct, 1), "%)</strong> ",
+      "vs. flying from ", worst_airport,
+      "</p>",
+      "</div>",
+      sep = ""
+    )
+    
+    # Build comparison table
+    table_html <- dataTableOutput("best_deal_table")
+    
+    list(
+      HTML(recommendation_html),
+      div(class = "content-card",
+          div(class = "content-card-title", "All Departure Airports (Ranked by Price)"),
+          tags$p("Sorted from cheapest to most expensive.",
+                 style = "font-size: 12px; color: #718096; margin-bottom: 12px;"),
+          table_html
+      )
+    )
+  })
+  
+  # Render comparison table
+  output$best_deal_table <- renderDataTable({
+    result <- best_deal_data()
+    
+    if (is.null(result)) {
+      return(data.frame())
+    }
+    
+    return(result)
+  }, options = list(pageLength = 10, searching = TRUE, paging = TRUE))
 }  
 
 # return server object

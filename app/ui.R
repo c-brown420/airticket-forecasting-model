@@ -595,7 +595,13 @@ ui <- fluidPage(
                                )
                       ),
                       
-                      # ── TAB 8: State Heatmap ──
+                      # ── TAB 8: Best Time to Book ──
+                      tabPanel("Best Time to Book",
+                               br(),
+                               uiOutput("best_time_to_book_ui")
+                      ),
+                      
+                      # ── TAB 9: State Heatmap ──
                       tabPanel("State Heatmap",
                                br(),
                                div(class = "content-card",
