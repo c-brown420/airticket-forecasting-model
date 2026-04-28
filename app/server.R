@@ -23,17 +23,21 @@ library(plotly)
 # DATA LOADING AND CLEANING
 # ============================================================================
 
+list.files("app/data/")
+
 load_and_clean <- function() {
   # load data
-  airfare_data <- read.csv("data/Consumer_Airfare_Report.csv", stringsAsFactors = FALSE)
+  airfare_data_a <- read.csv("data/Consumer_Airfare_Report.csv", stringsAsFactors = FALSE)
+  airfare_data_b <- read.csv("data/Consumer_Airfare_Report_Table6.csv", stringsAsFactors = FALSE)
   
+  common_cols <- intersect(names(airfare_data_a), names(airfare_data_b))
+  airfare_data <- rbind(airfare_data_a[, common_cols], airfare_data_b[, common_cols])
   # data cleaning
   # 1. remove dollar signs and convert fare to numeric
   airfare_data$fare <- as.numeric(gsub("\\$", "", airfare_data$fare))
   
   # 2. convert quarter to numeric
   airfare_data$quarter <- as.numeric(airfare_data$quarter)
-  
   # 3. convert nsmiles - remove commas and convert to numeric
   airfare_data$nsmiles <- as.numeric(gsub(",", "", airfare_data$nsmiles))
   
@@ -174,7 +178,89 @@ server <- function(input, output, session) {
     data <- filtered_data()
     format(nrow(data), big.mark = ",")
   })
+  # ========================================================================
+  # LINEAR REGRESSION MODEL
+  # ========================================================================
   
+  output$regression_summary <- renderPrint({
+    data <- filtered_data()
+    
+    # Convert passengers and market share to numeric
+    data$passengers <- as.numeric(gsub(",", "", data$passengers))
+    data$large_ms <- as.numeric(data$large_ms)
+    
+    # Build linear regression model
+    model <- lm(fare ~ nsmiles + passengers + large_ms + quarter, data = data)
+    
+    summary(model)
+  })
+  
+  output$regression_plot <- renderPlotly({
+    data <- filtered_data()
+    data$passengers <- as.numeric(gsub(",", "", data$passengers))
+    data$large_ms <- as.numeric(data$large_ms)
+    
+    model <- lm(fare ~ nsmiles + passengers + large_ms + quarter, data = data)
+    
+    # Add predicted values
+    data$predicted <- predict(model, data)
+    
+    # Sample for performance (plotly struggles with huge datasets)
+    if (nrow(data) > 5000) {
+      data <- data[sample(nrow(data), 5000), ]
+    }
+    
+    p <- ggplot(data, aes(x = predicted, y = fare)) +
+      geom_point(alpha = 0.2, color = "steelblue", size = 1) +
+      geom_abline(slope = 1, intercept = 0, color = "red", linewidth = 1) +
+      theme_minimal() +
+      labs(
+        title = "Linear Regression: Actual vs Predicted Fare",
+        x = "Predicted Fare ($)",
+        y = "Actual Fare ($)"
+      ) +
+      theme(plot.title = element_text(size = 14, face = "bold"))
+    
+    ggplotly(p)
+  })
+  
+  output$regression_metrics <- renderTable({
+    data <- filtered_data()
+    data$passengers <- as.numeric(gsub(",", "", data$passengers))
+    data$large_ms <- as.numeric(data$large_ms)
+    
+    model <- lm(fare ~ nsmiles + passengers + large_ms + quarter, data = data)
+    
+    predicted <- predict(model, data)
+    actual <- data$fare
+    
+    rmse <- sqrt(mean((actual - predicted)^2, na.rm = TRUE))
+    mae  <- mean(abs(actual - predicted), na.rm = TRUE)
+    r2   <- summary(model)$r.squared
+    
+    data.frame(
+      Metric = c("R-squared", "RMSE", "MAE"),
+      Value  = c(round(r2, 4), round(rmse, 2), round(mae, 2))
+    )
+  }, striped = TRUE, hover = TRUE)
+  
+  output$regression_coefficients <- renderDataTable({
+    data <- filtered_data()
+    data$passengers <- as.numeric(gsub(",", "", data$passengers))
+    data$large_ms <- as.numeric(data$large_ms)
+    
+    model <- lm(fare ~ nsmiles + passengers + large_ms + quarter, data = data)
+    
+    coef_df <- as.data.frame(summary(model)$coefficients)
+    coef_df$Variable <- rownames(coef_df)
+    coef_df <- coef_df[, c("Variable", "Estimate", "Std. Error", "t value", "Pr(>|t|)")]
+    coef_df$Estimate    <- round(coef_df$Estimate, 4)
+    coef_df$`Std. Error` <- round(coef_df$`Std. Error`, 4)
+    coef_df$`t value`   <- round(coef_df$`t value`, 3)
+    coef_df$`Pr(>|t|)`  <- round(coef_df$`Pr(>|t|)`, 4)
+    
+    coef_df
+  }, options = list(pageLength = 10, searching = FALSE, paging = FALSE))
   # ========================================================================
   # BOX PLOT 1: PRICE BY QUARTER (SINGLE YEAR)
   # ========================================================================
@@ -522,9 +608,9 @@ server <- function(input, output, session) {
         locations = ~state,
         color     = ~mean_fare,
         colorscale = list(
-          list(0,   "green"),
-          list(0.5, "yellow"),
-          list(1,   "red")
+          list(0,   "rgba(100, 149, 237, 0.3)"),
+          list(0.5, "rgba(138, 43, 226, 0.5)"),
+          list(1,   "rgba(75, 0, 130, 0.85)")
         ),
         text = ~paste0(state, "<br>Mean Fare: $", mean_fare),
         hoverinfo = "text",

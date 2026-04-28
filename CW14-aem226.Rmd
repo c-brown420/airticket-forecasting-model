@@ -1,0 +1,215 @@
+---
+title: "Web Scraping in R Notebook"
+author: Brian Davison
+output: html_notebook
+date: 19 November 2025
+---
+
+### 0. Getting Started
+
+As you have seen previously, everything starts with data.  But sometimes the data you want is only available on a web page, rather than in a database or a CSV file.  Sometimes, it is possible to scrape such data from a web page in an automated way using R.  That is the purpose of this lab.
+
+A single page might not reflect much benefit, but if that page is to be scraped on a periodic basis, or if there are many such pages from which data is to be extracted, then an automated method makes a lot of sense.
+
+### 1. Scraping static pages
+
+Full disclosure: our first example comes from http://www.computerworld.com/article/2909560/web-scraping-with-r-and-rvest-includes-video-code.html
+
+Let's imagine you'd like to find the national weather service forecast. You might go to their home page at http://www.weather.gov/:
+
+![The home page at http://www.weather.gov/](http://www.cse.lehigh.edu/~brian/course/2023/datascience/ref_image_nationalweather.png)
+
+However, the home page does not show the weather for Bethlehem PA.  You need to type in the zip code here (18015) or Bethlehem PA and hit return or push Go and it will result in a page like the following.  Note that I kept a forecast from the past that suggested a very nice temperature.
+
+![A pleasant forecast for Bethlehem from  http://www.weather.gov/](http://www.cse.lehigh.edu/~brian/course/2023/datascience/ref_image_natweather_bethlehem.png)
+
+Let's imagine that we want to capture the weather forecast for the coming week for Bethlehem.  We will use a library called "rvest" to help with this process.  Review and then run the following code.
+
+```{r}
+# load the library
+library("rvest")
+# capture the webpage of interest
+htmlpage <- read_html("http://forecast.weather.gov/MapClick.php?lat=40.65660050560996&lon=-75.37807501355024#.VxLJIZMrJ24")
+# extract the HTML nodes of interest that match the specified CSS codes
+forecasthtml <- html_elements(htmlpage, "#detailed-forecast-body b , .forecast-text")
+# get the vector of strings from the retrieved HTML nodes
+forecast <- html_text(forecasthtml)
+# put those string vectors together into a single string to review.
+paste(forecast, collapse =" ")
+```
+
+Thus, we have code that can get the weather forecast for the next week, both days and nights.  And we can run it at any time and get an updated forecast.  We could then record it, add it to a dataframe over time, etc.
+
+### 2. Identifying the CSS tags 
+
+One key to this process is to be able to identify the part of the page that we want to capture.  This was the purpose of specifying the string with CSS tags as a parameter to the call to `html_elements()`.  For those of you how know CSS and can read HTML to identify the needed CSS tags, you are welcome to try to identify the CSS tags needed to select the current weather facts (temperature, humidity, ... wind chill, and last update) but only the values, not the labels.
+
+```{r}
+# YOUR CODE HERE to read the same page, but to extract the eight values of current temperature, humidity, wind speed, ... wind chill, and last update.
+
+library("rvest")
+
+htmlpage <- read_html("http://forecast.weather.gov/MapClick.php?lat=40.65660050560996&lon=-75.37807501355024#.VxLJIZMrJ24")
+
+current_values_html <- html_elements(htmlpage, "#current_conditions_detail td:nth-child(2)")
+
+current_values <- html_text(current_values_html)
+
+print(current_values)
+```
+
+Most of us, however, will find that to be a fairly complex task.  Fortunately, it is easy to identify the CSS selector string using a browser plug in called [SelectorGadget](http://selectorgadget.com).
+
+![The homepage for  http://selectorgadget.com](http://www.cse.lehigh.edu/~brian/course/2023/datascience/ref_image_selectorgadget.png)
+Please go to that website and watch the short video on how to use the tool.  And for those who are able to run Google Chrome and to install Chrome Extensions, I strongly recommend that you do so.  (This is an old, and safe Chrome extension that I have installed for 5+ years without incident on my main browser on all of my Macs.)  If you don't have the ability to install this Chrome Extension on your laptop, the SelectorGadget has a bookmark you can add to your browser instead.  If neither of these work for you, I suggest that you work with someone who can.
+
+Then, go back to the code block above and extract the current weather data as described (once you figure out what CSS selector string you need).
+
+### 3. Web Scraping Considerations
+
+Now that I've shown you that web scraping in R is possible, we should discuss when web scraping is appropriate and when it is not.
+
+- Strengths of Web scraping
+  - Data is relatively easily obtained
+  - Structured process for obtaining data
+  - Can be easily updated
+  - A script can be easily re-run as many times as needed
+
+- Challenges of Web scraping
+  - At the mercy of the website which might allow or prevent your efforts
+  - Many sites are old and not up to date on current design standards
+  - Data validation can be difficult and time consuming
+  - Often need some basic knowledge of HTML
+
+- When is Web scraping worthwhile?
+  - Best when scraping many pages
+  - Particularly when web addresses are not structured (e.g., need to follow links)
+  - Useful when data need to be updated periodically
+
+- Caveats to Web scraping
+  - Keep in mind that when scraping we are using their bandwidth
+  - Do not want to repeatedly do expensive bandwidth operations
+  - Better to scrape once, then run only to update data
+  - Some websites prohibit scraping (TOS)
+
+If the service provides an API (e.g., as Google and Twitter do), it is likely going to be a better choice than web scraping.
+
+### 4. Example of Prohibiting Scraping
+
+![TripAdvisor's page of Bethlehem hotels](http://www.cse.lehigh.edu/~brian/course/2023/datascience/ref_image_tripadvisor.png)
+
+The code below (when it was not commented) used to extract a list of Bethlehem area hotels and links to the specific webpage for the hotel.  Last checked, the `read_html()` call returns a 403 Forbidden response (i.e., it does not work!).
+
+```{r}
+#library("rvest")
+#htmlpage <- read_html("https://www.tripadvisor.com/Hotels-g60789-Bethlehem_Pennsylvania-Hotels.html")
+#hotelshtml <- html_elements(htmlpage, ".prw_meta_hsx_responsive_listing.listItem .prominent")
+#hotellist <- html_text(hotelshtml)
+#hotelurls <- html_attr(hotelshtml, "href")
+```
+
+If the above code had worked, we would have written a loop to go through each of the hotel-specific pages and extracted review information so that we could recommend hotels to visiting parents of Lehigh students based on recent reviews.
+
+![Example of final results that we used to be able to get when extracting Bethlehem hotel ratings from TripAdvisor](http://www.cse.lehigh.edu/~brian/course/2023/datascience/ref_image_tripadvisor_results.png)
+
+Clearly TripAdvisor does not want people scraping content from their pages.  And indeed, if you were to read the TripAdvisor [Terms of Service](https://tripadvisor.mediaroom.com/us-terms-of-use#OLE_LINK4) you'll see that any automated access is prohibited by default.  This is true of many services, unless you get written permission.  However, laws about web scraping (and crawling, more generally) can vary depending on the region of the world.  See [this discussion](https://www.termsfeed.com/blog/web-scraping-laws/) that points out that web scraping of non-personally-identifiable information is legal in the US, but perhaps not in the EU.  Note that web scraping is the collecting of data, but that doesn't necessarily give you the right to re-publish or even use what you've collected (e.g., the content you've collected could be copyrighted.)
+
+### 5. Scraping exercise
+
+Go to [Yahoo Finance](https://finance.yahoo.com/), find your favorite stock, and click on historical prices data.  You could scrape the historical data for this stock (and any other stock you wanted).  But should you?  No, since Yahoo Finance offers a Download button to get the historical data in a CSV!
+
+So let's go to Wikipedia instead, and scrape the top 100 Billboard Music singles of the year 2000.  Note that the selection string from SelectorGadget when limited to just the table information seems to not extract anything (for me, at least).  Instead, in this case, we'll need to allow the links at the bottom of the page to be included (i.e., for a simpler selection string) and filter that part of the response afterwards.
+
+```{r}
+# YOUR CODE HERE
+
+
+library("rvest")
+
+htmlpage <- read_html("https://en.wikipedia.org/wiki/Billboard_Year-End_Hot_100_singles_of_2000")
+
+tables <- html_elements(htmlpage, "table.wikitable")
+
+billboard_table <- html_table(tables[[1]])
+
+colnames(billboard_table) <- c("Rank", "Title", "Artist")
+
+billboard_top100 <- billboard_table[1:100, ]
+
+print(billboard_top100)
+
+```
+
+### 6. Dynamic websites, javascript, etc.
+
+Some websites are protected behind authentication pages, or queries, or other data entry.  We'd still like to be able to automatically access and scrape content there too.  For that, however, we need something more capable, like a browser.  Fortunately, it is possible to programmatically control a browser (sometimes called a headless browser).  [Selenium](https://www.selenium.dev/) automates the use of web browsers (typically for testing, but can be used for many other purposes, like scraping).  The `RSelenium` library enables R to connect to and use Selenium.  The advantage of using Selenium is that now it is a real web browser accessing a web page, which means web sites that use javascript and other dynamic elements can get rendered and the browser can interact with them, just like a human-driven browser.  That does not happen with the simple fetching of pages with Curl or rvest.
+
+Note that Selenium is written in Java and thus requires that Java be properly installed first which you can do from https://www.java.com.
+
+I've installed firefox on my Mac (in addition to Chrome, my main browser), and so the code below does something pretty simple for me (after installing the library).  But it is always pretty wild to see a program launch and operate on its own.  
+
+```{r}
+library(RSelenium)
+
+rD <- rsDriver(browser = "firefox", chromever=NULL, phantomver=NULL) # you might need iedrver = NULL (i.e., to disable drivers not being used)
+# first time run, it might download a bunch of drivers
+mybrowser <- rD[["client"]]
+
+mybrowser$navigate("http://www.google.com/")
+Sys.sleep(1)
+searchbar <-
+    mybrowser$findElement(using='css', value='.gLFyf')
+searchbar$sendKeysToElement(list('selenium', key='enter'))
+
+# wait for page to fully render and for user to see what happened, and respond to CAPTCHA if needed since Google is suspicious!
+Sys.sleep(20)
+
+# capture the page for later parsing
+html <- mybrowser$getPageSource()[[1]]
+
+# go back to Google
+mybrowser$goBack() # equivalent to the back button
+Sys.sleep(2)
+
+# we are done, so let's close everything so we can re-run this code if we want
+mybrowser$close()
+rD[["server"]]$stop()
+```
+
+If you were to watch carefully, it would visit Google, select the search bar and type a query, and then execute it, which brings up a result page, and then does the equivalent of clicking the back button and then shutting everything down.
+
+![Watching firefox under Selenium control](http://www.cse.lehigh.edu/~brian/course/2023/datascience/ref_image_selenium.png)
+
+If you were able to get the prior part running, then you should be able to automatically get weather data for any zip code.  Use RSelenium to visit the weather.gov homepage as we started in this lab, but then click into the search box with `clickElement()`, put your home zip code in, and click the search button.  That will bring up the weather page for your zip code, and if you capture the html page, then you can parse it as we did previously.
+
+```{r}
+# YOUR CODE HERE
+library(RSelenium)
+library(rvest)
+
+rD <- rsDriver(browser = "firefox", chromever = NULL, phantomver = NULL)
+mybrowser <- rD[["client"]]
+
+mybrowser$navigate("https://www.weather.gov/")
+Sys.sleep(2)
+
+search_box <- mybrowser$findElement(using = "css", value = "#inputstring")
+search_box$clickElement()
+search_box$sendKeysToElement(list("18015"))
+
+go_button <- mybrowser$findElement(using = "css", value = "#btnSearch")
+go_button$clickElement()
+Sys.sleep(3)
+
+page_html <- mybrowser$getPageSource()[[1]]
+
+htmlpage <- read_html(page_html)
+forecasthtml <- html_elements(htmlpage, "#detailed-forecast-body b , .forecast-text")
+forecast <- html_text(forecasthtml)
+paste(forecast, collapse = " ")
+
+mybrowser$close()
+rD[["server"]]$stop()
+```
+
+Now you can imagine automatically getting weather forecasts 
