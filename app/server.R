@@ -1225,9 +1225,9 @@ server <- function(input, output, session) {
       Linear_Regression = c(
         "Parametric",
         "Continuous fare estimate",
-        "❌ No (assumes linear)",
-        "❌ Limited",
-        "✅ Very High (see coefficients)",
+        "No (assumes linear)",
+        "Limited",
+        "Very High (see coefficients)",
         "Low",
         "Data shows clear linear trend",
         "May underfit complex patterns"
@@ -1235,9 +1235,9 @@ server <- function(input, output, session) {
       Decision_Tree = c(
         "Non-parametric",
         "Continuous fare estimate",
-        "✅ Yes (captures curves)",
-        "✅ Yes (natural splits)",
-        "✅ High (visualize decision rules)",
+        "Yes (captures curves)",
+        "Yes (natural splits)",
+        "High (visualize decision rules)",
         "High (needs pruning)",
         "Data has complex, non-linear patterns",
         "May overfit if not pruned carefully"
