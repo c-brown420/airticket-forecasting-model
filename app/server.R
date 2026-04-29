@@ -1281,13 +1281,13 @@ server <- function(input, output, session) {
         round(lr_r2, 4),
         round(lr_rmse, 2),
         round(lr_mae, 2),
-        if (lr_rmse < dt_rmse) "✅ Better" else "❌"
+        if (lr_rmse < dt_rmse) "Better" else "Worse"
       ),
       Decision_Tree = c(
         round(dt_r2, 4),
         round(dt_rmse, 2),
         round(dt_mae, 2),
-        if (dt_rmse < lr_rmse) "✅ Better" else "❌"
+        if (dt_rmse < lr_rmse) "Better" else "Worse"
       )
     )
   }, striped = TRUE, hover = TRUE)
