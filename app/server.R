@@ -2,6 +2,8 @@ library(shiny)
 library(tidyverse)
 library(ggplot2)
 library(plotly)
+library(rpart)
+library(rpart.plot)
 # NOTE: UI should have a year selector
 # selectInput("year_select", "Select Year:",
 #             choices = c(2022, 2023, 2024),
@@ -1141,6 +1143,154 @@ server <- function(input, output, session) {
       )
     )
   }, options = list(pageLength = 10, searching = FALSE, paging = FALSE))
+  
+  # ========================================================================
+  # DECISION TREE MODEL
+  # ========================================================================
+  
+  output$decision_tree_plot <- renderPlot({
+    data <- filtered_data()
+    
+    if (nrow(data) < 10) {
+      return(NULL)
+    }
+    
+    data$passengers <- as.numeric(gsub(",", "", data$passengers))
+    data$large_ms <- as.numeric(data$large_ms)
+    
+    # Build decision tree
+    tree_model <- rpart(fare ~ nsmiles + passengers + large_ms + quarter,
+                        data = data,
+                        method = "anova",  # for continuous target
+                        cp = 0.01)  # complexity parameter
+    
+    # Plot the tree
+    rpart.plot(tree_model, 
+               main = "Decision Tree: Airline Fare Prediction",
+               type = 4, 
+               extra = 101)
+  })
+  
+  # Decision Tree Predictions & Metrics
+  output$decision_tree_metrics <- renderTable({
+    data <- filtered_data()
+    
+    if (nrow(data) < 10) {
+      return(data.frame(Metric = "Insufficient data"))
+    }
+    
+    data$passengers <- as.numeric(gsub(",", "", data$passengers))
+    data$large_ms <- as.numeric(data$large_ms)
+    
+    # Build tree
+    tree_model <- rpart(fare ~ nsmiles + passengers + large_ms + quarter,
+                        data = data,
+                        method = "anova",
+                        cp = 0.01)
+    
+    # Get predictions
+    predicted <- predict(tree_model, data)
+    actual <- data$fare
+    
+    rmse <- sqrt(mean((actual - predicted)^2, na.rm = TRUE))
+    mae <- mean(abs(actual - predicted), na.rm = TRUE)
+    
+    # Calculate R²
+    ss_res <- sum((actual - predicted)^2)
+    ss_tot <- sum((actual - mean(actual))^2)
+    r2 <- 1 - (ss_res / ss_tot)
+    
+    data.frame(
+      Metric = c("R-squared", "RMSE", "MAE", "Model Type"),
+      Value = c(round(r2, 4), round(rmse, 2), round(mae, 2), "Non-parametric")
+    )
+  }, striped = TRUE, hover = TRUE)
+  
+  # ========================================================================
+  # MODEL COMPARISON: LINEAR REGRESSION vs DECISION TREE
+  # ========================================================================
+  
+  output$lr_vs_dt_comparison <- renderDataTable({
+    data.frame(
+      Aspect = c(
+        "Model Type",
+        "Prediction Output",
+        "Handles Non-linearity",
+        "Feature Interactions",
+        "Interpretability",
+        "Overfitting Risk",
+        "Best When",
+        "Weakness"
+      ),
+      Linear_Regression = c(
+        "Parametric",
+        "Continuous fare estimate",
+        "❌ No (assumes linear)",
+        "❌ Limited",
+        "✅ Very High (see coefficients)",
+        "Low",
+        "Data shows clear linear trend",
+        "May underfit complex patterns"
+      ),
+      Decision_Tree = c(
+        "Non-parametric",
+        "Continuous fare estimate",
+        "✅ Yes (captures curves)",
+        "✅ Yes (natural splits)",
+        "✅ High (visualize decision rules)",
+        "High (needs pruning)",
+        "Data has complex, non-linear patterns",
+        "May overfit if not pruned carefully"
+      )
+    )
+  }, options = list(pageLength = 10, searching = FALSE, paging = FALSE))
+  
+  # Side-by-side Metrics Comparison
+  output$model_performance_comparison <- renderTable({
+    data <- filtered_data()
+    
+    if (nrow(data) < 10) {
+      return(data.frame(Metric = "Insufficient data"))
+    }
+    
+    data$passengers <- as.numeric(gsub(",", "", data$passengers))
+    data$large_ms <- as.numeric(data$large_ms)
+    
+    # Linear Regression
+    lr_model <- lm(fare ~ nsmiles + passengers + large_ms + quarter, data = data)
+    lr_pred <- predict(lr_model, data)
+    lr_rmse <- sqrt(mean((data$fare - lr_pred)^2, na.rm = TRUE))
+    lr_mae <- mean(abs(data$fare - lr_pred), na.rm = TRUE)
+    lr_r2 <- summary(lr_model)$r.squared
+    
+    # Decision Tree
+    tree_model <- rpart(fare ~ nsmiles + passengers + large_ms + quarter,
+                        data = data,
+                        method = "anova",
+                        cp = 0.01)
+    dt_pred <- predict(tree_model, data)
+    dt_rmse <- sqrt(mean((data$fare - dt_pred)^2, na.rm = TRUE))
+    dt_mae <- mean(abs(data$fare - dt_pred), na.rm = TRUE)
+    ss_res <- sum((data$fare - dt_pred)^2)
+    ss_tot <- sum((data$fare - mean(data$fare))^2)
+    dt_r2 <- 1 - (ss_res / ss_tot)
+    
+    data.frame(
+      Metric = c("R-squared", "RMSE ($)", "MAE ($)", "Winner"),
+      Linear_Regression = c(
+        round(lr_r2, 4),
+        round(lr_rmse, 2),
+        round(lr_mae, 2),
+        if (lr_rmse < dt_rmse) "✅ Better" else "❌"
+      ),
+      Decision_Tree = c(
+        round(dt_r2, 4),
+        round(dt_rmse, 2),
+        round(dt_mae, 2),
+        if (dt_rmse < lr_rmse) "✅ Better" else "❌"
+      )
+    )
+  }, striped = TRUE, hover = TRUE)
 }  
 
 # return server object

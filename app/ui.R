@@ -617,9 +617,31 @@ ui <- fluidPage(
                       ),
                       
                       # ── TAB 10: Model Comparison ──
-                      tabPanel("Model Comparison",
+                      tabPanel("Model Comparison (LR vs NB)",
                                br(),
                                uiOutput("model_comparison_ui")
+                      ),
+                      
+                      # ── TAB 11: Model Comparison (LR vs DT) ──
+                      tabPanel("Model Comparison (LR vs DT)",
+                               br(),
+                               div(class = "content-card",
+                                   div(class = "content-card-title", "Decision Tree Model"),
+                                   plotOutput("decision_tree_plot", height = "500px"),
+                                   br(),
+                                   div(class = "content-card-title", "Decision Tree Metrics"),
+                                   tableOutput("decision_tree_metrics")
+                               ),
+                               br(),
+                               div(class = "content-card",
+                                   div(class = "content-card-title", "Performance Comparison"),
+                                   tableOutput("model_performance_comparison")
+                               ),
+                               br(),
+                               div(class = "content-card",
+                                   div(class = "content-card-title", "Model Characteristics"),
+                                   dataTableOutput("lr_vs_dt_comparison")
+                               )
                       )
                       
           ) # end tabsetPanel
